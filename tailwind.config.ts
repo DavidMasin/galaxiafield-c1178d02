@@ -13,6 +13,11 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        mono: ["Share Tech Mono", "monospace"],
+        display: ["Orbitron", "sans-serif"],
+        body: ["Rajdhani", "sans-serif"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -57,6 +62,23 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        alliance: {
+          red: "hsl(var(--alliance-red))",
+          "red-dim": "hsl(var(--alliance-red-dim))",
+          blue: "hsl(var(--alliance-blue))",
+          "blue-dim": "hsl(var(--alliance-blue-dim))",
+        },
+        status: {
+          ok: "hsl(var(--status-ok))",
+          warn: "hsl(var(--status-warn))",
+          error: "hsl(var(--status-error))",
+          offline: "hsl(var(--status-offline))",
+        },
+        frc: {
+          green: "hsl(var(--frc-green))",
+          orange: "hsl(var(--frc-orange))",
+          yellow: "hsl(var(--frc-yellow))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -65,25 +87,28 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        "pulse-glow": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.5" },
+        },
+        "score-flash": {
+          "0%": { transform: "scale(1)", opacity: "1" },
+          "50%": { transform: "scale(1.2)", opacity: "0.8" },
+          "100%": { transform: "scale(1)", opacity: "1" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+        "score-flash": "score-flash 0.3s ease-out",
       },
     },
   },
