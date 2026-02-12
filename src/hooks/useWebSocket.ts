@@ -12,40 +12,52 @@ export function useWebSocket() {
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-    setConnectionStatus('reconnecting');
-    const ws = new WebSocket(WS_URL);
-
-    ws.onopen = () => {
-      setConnectionStatus('connected');
-      if (reconnectTimer.current) {
-        clearTimeout(reconnectTimer.current);
-        reconnectTimer.current = null;
-      }
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === 'score') {
-          setGlobalBallCount(msg.count);
-          addScore(msg.count, msg.ts * 1000);
-        }
-      } catch {
-        // ignore malformed
-      }
-    };
-
-    ws.onclose = () => {
+    // Cannot open ws:// from an HTTPS page — skip gracefully
+    if (window.location.protocol === 'https:') {
+      console.warn('[WebSocket] Skipping ws:// connection from HTTPS page. Deploy over HTTP for LAN use.');
       setConnectionStatus('disconnected');
-      wsRef.current = null;
-      reconnectTimer.current = window.setTimeout(connect, RECONNECT_DELAY);
-    };
+      return;
+    }
 
-    ws.onerror = () => {
-      ws.close();
-    };
+    setConnectionStatus('reconnecting');
+    try {
+      const ws = new WebSocket(WS_URL);
 
-    wsRef.current = ws;
+      ws.onopen = () => {
+        setConnectionStatus('connected');
+        if (reconnectTimer.current) {
+          clearTimeout(reconnectTimer.current);
+          reconnectTimer.current = null;
+        }
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'score') {
+            setGlobalBallCount(msg.count);
+            addScore(msg.count, msg.ts * 1000);
+          }
+        } catch {
+          // ignore malformed
+        }
+      };
+
+      ws.onclose = () => {
+        setConnectionStatus('disconnected');
+        wsRef.current = null;
+        reconnectTimer.current = window.setTimeout(connect, RECONNECT_DELAY);
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
+
+      wsRef.current = ws;
+    } catch (err) {
+      console.warn('[WebSocket] Connection failed:', err);
+      setConnectionStatus('disconnected');
+    }
   }, [setConnectionStatus, addScore, setGlobalBallCount]);
 
   const send = useCallback((msg: Record<string, unknown>) => {
