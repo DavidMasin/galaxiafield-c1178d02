@@ -136,6 +136,8 @@ export interface MatchStore {
   triggerEStop: () => void;
   setGlobalBallCount: (count: number) => void;
   setPeriod: (p: MatchPeriod) => void;
+  setMatchData: (data: any) => set({ matchData: data }),
+
 }
 
 function computeHubStatuses(
