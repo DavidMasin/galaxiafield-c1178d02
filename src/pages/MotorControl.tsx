@@ -1,8 +1,7 @@
 import { useMatchStore } from '@/store/matchStore';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
-import { AlertTriangle, Power, RotateCw, Shield } from 'lucide-react';
+import { AlertTriangle, Power } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function MotorControl() {
@@ -10,18 +9,11 @@ export default function MotorControl() {
 
   const handleToggle = () => {
     if (motor.eStop) return;
-    if (!motor.safetyInterlock && !motor.enabled) return;
-    setMotor({ enabled: !motor.enabled, rpm: motor.enabled ? 0 : motor.targetRpm });
+    setMotor({ enabled: !motor.enabled, percent: motor.enabled ? 0 : motor.percent });
   };
 
-  const handleRpmChange = ([value]: number[]) => {
-    setMotor({ targetRpm: value, ...(motor.enabled ? { rpm: value } : {}) });
-  };
-
-  const handleScoreSpin = () => {
-    if (motor.eStop || !motor.safetyInterlock) return;
-    setMotor({ enabled: true, rpm: 500 });
-    setTimeout(() => setMotor({ enabled: false, rpm: 0 }), 1500);
+  const handlePercentChange = ([value]: number[]) => {
+    setMotor({ percent: value / 100 });
   };
 
   return (
@@ -30,7 +22,6 @@ export default function MotorControl() {
         Motor Control
       </h1>
 
-      {/* E-Stop - always prominent */}
       <Button
         onClick={triggerEStop}
         className={cn(
@@ -56,7 +47,6 @@ export default function MotorControl() {
         </div>
       )}
 
-      {/* Motor toggle + RPM */}
       <div className="rounded-lg border border-border bg-card p-4">
         <h3 className="mb-4 font-display text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
           Motor State
@@ -64,7 +54,7 @@ export default function MotorControl() {
         <div className="flex items-center gap-4">
           <Button
             onClick={handleToggle}
-            disabled={motor.eStop || (!motor.safetyInterlock && !motor.enabled)}
+            disabled={motor.eStop}
             className={cn(
               'gap-2 font-display text-sm uppercase',
               motor.enabled
@@ -74,54 +64,22 @@ export default function MotorControl() {
           >
             <Power size={16} /> {motor.enabled ? 'Running' : 'Off'}
           </Button>
-          <div className="font-mono text-lg text-foreground">{motor.rpm} RPM</div>
+          <div className="font-mono text-lg text-foreground">{Math.round(motor.percent * 100)}%</div>
         </div>
 
         <div className="mt-4">
           <label className="mb-2 block font-mono text-xs text-muted-foreground">
-            Target RPM — {motor.targetRpm}
+            Power — {Math.round(motor.percent * 100)}%
           </label>
           <Slider
-            value={[motor.targetRpm]}
-            onValueChange={handleRpmChange}
+            value={[Math.round(motor.percent * 100)]}
+            onValueChange={handlePercentChange}
             min={0}
-            max={2000}
-            step={50}
+            max={100}
+            step={5}
             disabled={motor.eStop}
           />
         </div>
-      </div>
-
-      {/* Score spin */}
-      <div className="rounded-lg border border-border bg-card p-4">
-        <h3 className="mb-4 font-display text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
-          Quick Actions
-        </h3>
-        <Button
-          onClick={handleScoreSpin}
-          disabled={motor.eStop || !motor.safetyInterlock}
-          className="gap-2 bg-frc-orange font-display text-sm uppercase text-primary-foreground hover:bg-frc-orange/80"
-        >
-          <RotateCw size={16} /> Score Spin
-        </Button>
-      </div>
-
-      {/* Safety */}
-      <div className="rounded-lg border border-border bg-card p-4">
-        <h3 className="mb-4 font-display text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
-          Safety
-        </h3>
-        <div className="flex items-center gap-3">
-          <Shield size={16} className={motor.safetyInterlock ? 'text-status-ok' : 'text-status-error'} />
-          <span className="font-mono text-sm text-foreground">Safety Interlock</span>
-          <Switch
-            checked={motor.safetyInterlock}
-            onCheckedChange={(v) => setMotor({ safetyInterlock: v })}
-          />
-        </div>
-        <p className="mt-2 font-mono text-xs text-muted-foreground">
-          Motor cannot be enabled unless safety interlock is active
-        </p>
       </div>
     </div>
   );

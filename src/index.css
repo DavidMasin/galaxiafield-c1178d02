@@ -116,4 +116,29 @@
       hsl(0 0% 100% / 0.02) 4px
     );
   }
+
+  /* LED animation overlays for fullscreen mode */
+  .led-solid-red { box-shadow: inset 0 0 80px hsl(var(--alliance-red) / 0.15); }
+  .led-solid-blue { box-shadow: inset 0 0 80px hsl(var(--alliance-blue) / 0.15); }
+  .led-pulse-red { animation: led-pulse-red 1s ease-in-out infinite; }
+  .led-pulse-blue { animation: led-pulse-blue 1s ease-in-out infinite; }
+  .led-chase-red { animation: led-chase 2s linear infinite; box-shadow: inset 0 0 60px hsl(var(--alliance-red) / 0.1); }
+  .led-chase-blue { animation: led-chase 2s linear infinite; box-shadow: inset 0 0 60px hsl(var(--alliance-blue) / 0.1); }
+  .led-green { box-shadow: inset 0 0 80px hsl(var(--frc-green) / 0.2); }
+  .led-purple { box-shadow: inset 0 0 80px hsl(270 60% 50% / 0.2); }
+}
+
+@keyframes led-pulse-red {
+  0%, 100% { box-shadow: inset 0 0 40px hsl(var(--alliance-red) / 0.05); }
+  50% { box-shadow: inset 0 0 120px hsl(var(--alliance-red) / 0.25); }
+}
+
+@keyframes led-pulse-blue {
+  0%, 100% { box-shadow: inset 0 0 40px hsl(var(--alliance-blue) / 0.05); }
+  50% { box-shadow: inset 0 0 120px hsl(var(--alliance-blue) / 0.25); }
+}
+
+@keyframes led-chase {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 200% 0%; }
 }

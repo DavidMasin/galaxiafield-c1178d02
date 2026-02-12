@@ -9,7 +9,6 @@ import {
   Cog,
   Menu,
   X,
-  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMatchStore } from '@/store/matchStore';
@@ -25,18 +24,16 @@ const navItems = [
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const { connectionStatus, phase, demoMode } = useMatchStore();
+  const connectionStatus = useMatchStore((s) => s.connectionStatus);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {/* Sidebar */}
       <aside
         className={cn(
           'flex flex-col border-r border-border bg-sidebar transition-all duration-200',
           sidebarOpen ? 'w-56' : 'w-14'
         )}
       >
-        {/* Header */}
         <div className="flex h-14 items-center border-b border-border px-3">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -51,7 +48,6 @@ export default function DashboardLayout() {
           )}
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 space-y-1 p-2">
           {navItems.map((item) => (
             <NavLink
@@ -73,32 +69,25 @@ export default function DashboardLayout() {
           ))}
         </nav>
 
-        {/* Status footer */}
         <div className="border-t border-border p-3">
           <div className="flex items-center gap-2">
             <div
               className={cn(
                 'h-2 w-2 rounded-full',
                 connectionStatus === 'connected' && 'bg-status-ok',
-                connectionStatus === 'simulated' && 'bg-status-warn animate-pulse-glow',
+                connectionStatus === 'reconnecting' && 'bg-status-warn animate-pulse-glow',
                 connectionStatus === 'disconnected' && 'bg-status-error'
               )}
             />
             {sidebarOpen && (
               <span className="font-mono text-xs text-muted-foreground">
-                {connectionStatus === 'simulated' ? 'DEMO' : connectionStatus.toUpperCase()}
+                {connectionStatus.toUpperCase()}
               </span>
             )}
           </div>
-          {sidebarOpen && demoMode && (
-            <div className="mt-1 flex items-center gap-1 text-xs text-frc-orange">
-              <Zap size={12} /> Simulation Active
-            </div>
-          )}
         </div>
       </aside>
 
-      {/* Main content */}
       <main className="flex-1 overflow-y-auto">
         <Outlet />
       </main>
