@@ -94,7 +94,8 @@ export interface MatchStore {
   timeRemaining: number;
   totalMatchTime: number; // total elapsed
   paused: boolean;
-
+  matchData: any;
+  setMatchData: (data: any) => void;
   // Hub status
   redHubStatus: HubStatus;
   blueHubStatus: HubStatus;
@@ -126,6 +127,7 @@ export interface MatchStore {
   resumeMatch: () => void;
   resetMatch: () => void;
   tick: () => void;
+  setMatchData: (data: any) => set({ matchData: data });
   addScore: (count: number, timestamp: number) => void;
   setAutoWinner: (winner: AutoWinner) => void;
   setRedHubOverride: (o: 'none' | 'force_active' | 'force_inactive') => void;
@@ -136,7 +138,6 @@ export interface MatchStore {
   triggerEStop: () => void;
   setGlobalBallCount: (count: number) => void;
   setPeriod: (p: MatchPeriod) => void;
-  setMatchData: (data: any) => set({ matchData: data }),
 
 }
 
@@ -235,6 +236,7 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
   blueAutoScore: 0,
   globalBallCount: 0,
   scoringEvents: [],
+  matchData: null,
 
   connectionStatus: 'disconnected',
   ledMode: 'off',
