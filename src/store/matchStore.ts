@@ -1,38 +1,38 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 
 // ── 2026 FRC Match Periods ──
 export type MatchPeriod =
-  | 'disabled'
-  | 'auto'
-  | 'auto_grace'
-  | 'transition'
-  | 'shift1'
-  | 'shift2'
-  | 'shift3'
-  | 'shift4'
-  | 'endgame'
-  | 'teleop_grace'
-  | 'finished';
+  | "disabled"
+  | "auto"
+  | "auto_grace"
+  | "transition"
+  | "shift1"
+  | "shift2"
+  | "shift3"
+  | "shift4"
+  | "endgame"
+  | "teleop_grace"
+  | "finished";
 
-export type Alliance = 'red' | 'blue';
+export type Alliance = "red" | "blue";
 
-export type HubStatus = 'active' | 'inactive' | 'warning'; // warning = 3s before deactivation
+export type HubStatus = "active" | "inactive" | "warning"; // warning = 3s before deactivation
 
 export type LedMode =
-  | 'off'
-  | 'solid_red'
-  | 'solid_blue'
-  | 'pulse_red'
-  | 'pulse_blue'
-  | 'chase_red'
-  | 'chase_blue'
-  | 'green'
-  | 'purple'
-  | 'idle';
+  | "off"
+  | "solid_red"
+  | "solid_blue"
+  | "pulse_red"
+  | "pulse_blue"
+  | "chase_red"
+  | "chase_blue"
+  | "green"
+  | "purple"
+  | "idle";
 
-export type ConnectionStatus = 'connected' | 'disconnected' | 'reconnecting';
+export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";
 
-export type AutoWinner = 'red' | 'blue' | 'tie';
+export type AutoWinner = "red" | "blue" | "tie";
 
 export interface ScoringEvent {
   id: string;
@@ -63,29 +63,29 @@ export const PERIOD_DURATIONS: Record<string, number> = {
 
 // The sequence of periods in a match
 export const PERIOD_SEQUENCE: MatchPeriod[] = [
-  'auto',
-  'auto_grace',
-  'transition',
-  'shift1',
-  'shift2',
-  'shift3',
-  'shift4',
-  'endgame',
-  'teleop_grace',
+  "auto",
+  "auto_grace",
+  "transition",
+  "shift1",
+  "shift2",
+  "shift3",
+  "shift4",
+  "endgame",
+  "teleop_grace",
 ];
 
 export const PERIOD_LABELS: Record<MatchPeriod, string> = {
-  disabled: 'DISABLED',
-  auto: 'AUTONOMOUS',
-  auto_grace: 'AUTO GRACE',
-  transition: 'TRANSITION SHIFT',
-  shift1: 'SHIFT 1',
-  shift2: 'SHIFT 2',
-  shift3: 'SHIFT 3',
-  shift4: 'SHIFT 4',
-  endgame: 'END GAME',
-  teleop_grace: 'TELEOP GRACE',
-  finished: 'MATCH OVER',
+  disabled: "DISABLED",
+  auto: "AUTONOMOUS",
+  auto_grace: "AUTO GRACE",
+  transition: "TRANSITION SHIFT",
+  shift1: "SHIFT 1",
+  shift2: "SHIFT 2",
+  shift3: "SHIFT 3",
+  shift4: "SHIFT 4",
+  endgame: "END GAME",
+  teleop_grace: "TELEOP GRACE",
+  finished: "MATCH OVER",
 };
 
 export interface MatchStore {
@@ -95,12 +95,12 @@ export interface MatchStore {
   totalMatchTime: number; // total elapsed
   paused: boolean;
   matchData: any;
-  setMatchData: (data: any) => void;
+  // setMatchData: (data) => set({ matchData: data });
   // Hub status
   redHubStatus: HubStatus;
   blueHubStatus: HubStatus;
-  redHubOverride: 'none' | 'force_active' | 'force_inactive';
-  blueHubOverride: 'none' | 'force_active' | 'force_inactive';
+  redHubOverride: "none" | "force_active" | "force_inactive";
+  blueHubOverride: "none" | "force_active" | "force_inactive";
 
   // Auto winner (determines shift order)
   autoWinner: AutoWinner | null;
@@ -127,104 +127,119 @@ export interface MatchStore {
   resumeMatch: () => void;
   resetMatch: () => void;
   tick: () => void;
-  setMatchData: (data: any) => set({ matchData: data });
+  // setMatchData: (data: any) => set({ matchData: data });
   addScore: (count: number, timestamp: number) => void;
   setAutoWinner: (winner: AutoWinner) => void;
-  setRedHubOverride: (o: 'none' | 'force_active' | 'force_inactive') => void;
-  setBlueHubOverride: (o: 'none' | 'force_active' | 'force_inactive') => void;
+  setRedHubOverride: (o: "none" | "force_active" | "force_inactive") => void;
+  setBlueHubOverride: (o: "none" | "force_active" | "force_inactive") => void;
   setAlliance: (a: Alliance) => void;
   setConnectionStatus: (s: ConnectionStatus) => void;
   setMotor: (updates: Partial<MotorState>) => void;
   triggerEStop: () => void;
   setGlobalBallCount: (count: number) => void;
   setPeriod: (p: MatchPeriod) => void;
-
 }
 
 function computeHubStatuses(
   period: MatchPeriod,
   timeRemaining: number,
   shiftInactiveFirst: Alliance | null,
-  redOverride: 'none' | 'force_active' | 'force_inactive',
-  blueOverride: 'none' | 'force_active' | 'force_inactive'
+  redOverride: "none" | "force_active" | "force_inactive",
+  blueOverride: "none" | "force_active" | "force_inactive",
 ): { red: HubStatus; blue: HubStatus } {
-  let red: HubStatus = 'active';
-  let blue: HubStatus = 'active';
+  let red: HubStatus = "active";
+  let blue: HubStatus = "active";
 
   // Determine natural hub status based on period
-  if (period === 'auto' || period === 'auto_grace' || period === 'transition' || period === 'endgame' || period === 'teleop_grace') {
-    red = 'active';
-    blue = 'active';
-  } else if (period === 'shift1' || period === 'shift2' || period === 'shift3' || period === 'shift4') {
-    const shiftNum = parseInt(period.replace('shift', ''));
-    const inactiveFirst = shiftInactiveFirst || 'red';
+  if (
+    period === "auto" ||
+    period === "auto_grace" ||
+    period === "transition" ||
+    period === "endgame" ||
+    period === "teleop_grace"
+  ) {
+    red = "active";
+    blue = "active";
+  } else if (period === "shift1" || period === "shift2" || period === "shift3" || period === "shift4") {
+    const shiftNum = parseInt(period.replace("shift", ""));
+    const inactiveFirst = shiftInactiveFirst || "red";
     // Odd shifts: inactiveFirst is inactive. Even shifts: the other is inactive.
     const isOddShift = shiftNum % 2 === 1;
     if (isOddShift) {
-      if (inactiveFirst === 'red') { red = 'inactive'; blue = 'active'; }
-      else { red = 'active'; blue = 'inactive'; }
+      if (inactiveFirst === "red") {
+        red = "inactive";
+        blue = "active";
+      } else {
+        red = "active";
+        blue = "inactive";
+      }
     } else {
-      if (inactiveFirst === 'red') { red = 'active'; blue = 'inactive'; }
-      else { red = 'inactive'; blue = 'active'; }
+      if (inactiveFirst === "red") {
+        red = "active";
+        blue = "inactive";
+      } else {
+        red = "inactive";
+        blue = "active";
+      }
     }
 
     // Warning: 3 seconds before deactivation (i.e., at end of current shift)
     if (timeRemaining <= 3) {
       // The alliance that is currently ACTIVE is about to become inactive
-      if (red === 'active') red = 'warning';
-      if (blue === 'active') blue = 'warning';
+      if (red === "active") red = "warning";
+      if (blue === "active") blue = "warning";
     }
-  } else if (period === 'disabled' || period === 'finished') {
-    red = 'inactive';
-    blue = 'inactive';
+  } else if (period === "disabled" || period === "finished") {
+    red = "inactive";
+    blue = "inactive";
   }
 
   // Also add warning before transition ends (both hubs about to have shift rules)
-  if (period === 'transition' && timeRemaining <= 3) {
-    const inactiveFirst = shiftInactiveFirst || 'red';
-    if (inactiveFirst === 'red') red = 'warning';
-    else blue = 'warning';
+  if (period === "transition" && timeRemaining <= 3) {
+    const inactiveFirst = shiftInactiveFirst || "red";
+    if (inactiveFirst === "red") red = "warning";
+    else blue = "warning";
   }
 
   // Apply overrides
-  if (redOverride === 'force_active') red = 'active';
-  else if (redOverride === 'force_inactive') red = 'inactive';
-  if (blueOverride === 'force_active') blue = 'active';
-  else if (blueOverride === 'force_inactive') blue = 'inactive';
+  if (redOverride === "force_active") red = "active";
+  else if (redOverride === "force_inactive") red = "inactive";
+  if (blueOverride === "force_active") blue = "active";
+  else if (blueOverride === "force_inactive") blue = "inactive";
 
   return { red, blue };
 }
 
 function computeLedMode(period: MatchPeriod, redHub: HubStatus, blueHub: HubStatus, alliance: Alliance): LedMode {
-  if (period === 'disabled') return 'off';
-  if (period === 'finished') return 'purple';
+  if (period === "disabled") return "off";
+  if (period === "finished") return "purple";
 
-  if (period === 'transition') {
-    return alliance === 'red' ? 'chase_red' : 'chase_blue';
+  if (period === "transition") {
+    return alliance === "red" ? "chase_red" : "chase_blue";
   }
 
   // During shifts / auto / endgame
-  if (redHub === 'warning' || blueHub === 'warning') {
-    return alliance === 'red' ? 'pulse_red' : 'pulse_blue';
+  if (redHub === "warning" || blueHub === "warning") {
+    return alliance === "red" ? "pulse_red" : "pulse_blue";
   }
 
-  const myHub = alliance === 'red' ? redHub : blueHub;
-  if (myHub === 'active') return alliance === 'red' ? 'solid_red' : 'solid_blue';
-  if (myHub === 'inactive') return 'off';
+  const myHub = alliance === "red" ? redHub : blueHub;
+  if (myHub === "active") return alliance === "red" ? "solid_red" : "solid_blue";
+  if (myHub === "inactive") return "off";
 
-  return 'idle';
+  return "idle";
 }
 
 export const useMatchStore = create<MatchStore>((set, get) => ({
-  period: 'disabled',
+  period: "disabled",
   timeRemaining: 0,
   totalMatchTime: 0,
   paused: false,
 
-  redHubStatus: 'inactive',
-  blueHubStatus: 'inactive',
-  redHubOverride: 'none',
-  blueHubOverride: 'none',
+  redHubStatus: "inactive",
+  blueHubStatus: "inactive",
+  redHubOverride: "none",
+  blueHubOverride: "none",
 
   autoWinner: null,
   autoWinnerLocked: false,
@@ -238,16 +253,16 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
   scoringEvents: [],
   matchData: null,
 
-  connectionStatus: 'disconnected',
-  ledMode: 'off',
+  connectionStatus: "disconnected",
+  ledMode: "off",
   motor: { enabled: false, percent: 0, eStop: false },
-  alliance: 'red',
+  alliance: "red",
 
   startMatch: () => {
     const state = get();
     const winner = state.autoWinner;
     set({
-      period: 'auto',
+      period: "auto",
       timeRemaining: PERIOD_DURATIONS.auto,
       totalMatchTime: 0,
       paused: false,
@@ -261,8 +276,8 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       shiftInactiveFirst: null,
     });
     // Compute initial hub statuses
-    const hubs = computeHubStatuses('auto', PERIOD_DURATIONS.auto, null, 'none', 'none');
-    const led = computeLedMode('auto', hubs.red, hubs.blue, state.alliance);
+    const hubs = computeHubStatuses("auto", PERIOD_DURATIONS.auto, null, "none", "none");
+    const led = computeLedMode("auto", hubs.red, hubs.blue, state.alliance);
     set({ redHubStatus: hubs.red, blueHubStatus: hubs.blue, ledMode: led });
   },
 
@@ -271,7 +286,7 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
 
   resetMatch: () => {
     set({
-      period: 'disabled',
+      period: "disabled",
       timeRemaining: 0,
       totalMatchTime: 0,
       paused: false,
@@ -284,18 +299,18 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       autoWinner: null,
       autoWinnerLocked: false,
       shiftInactiveFirst: null,
-      redHubStatus: 'inactive',
-      blueHubStatus: 'inactive',
-      redHubOverride: 'none',
-      blueHubOverride: 'none',
-      ledMode: 'off',
+      redHubStatus: "inactive",
+      blueHubStatus: "inactive",
+      redHubOverride: "none",
+      blueHubOverride: "none",
+      ledMode: "off",
       motor: { enabled: false, percent: 0, eStop: false },
     });
   },
 
   tick: () => {
     const state = get();
-    if (state.period === 'disabled' || state.period === 'finished' || state.paused) return;
+    if (state.period === "disabled" || state.period === "finished" || state.paused) return;
 
     const newTime = state.timeRemaining - 1;
 
@@ -304,18 +319,18 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       const idx = PERIOD_SEQUENCE.indexOf(state.period);
 
       // Lock auto winner when auto ends
-      if (state.period === 'auto') {
+      if (state.period === "auto") {
         let winner = state.autoWinner;
         let inactiveFirst: Alliance;
         if (!winner) {
           // Determine from scores
-          if (state.redAutoScore > state.blueAutoScore) winner = 'red';
-          else if (state.blueAutoScore > state.redAutoScore) winner = 'blue';
-          else winner = 'tie';
+          if (state.redAutoScore > state.blueAutoScore) winner = "red";
+          else if (state.blueAutoScore > state.redAutoScore) winner = "blue";
+          else winner = "tie";
         }
-        if (winner === 'red') inactiveFirst = 'red';
-        else if (winner === 'blue') inactiveFirst = 'blue';
-        else inactiveFirst = Math.random() > 0.5 ? 'red' : 'blue';
+        if (winner === "red") inactiveFirst = "red";
+        else if (winner === "blue") inactiveFirst = "blue";
+        else inactiveFirst = Math.random() > 0.5 ? "red" : "blue";
 
         set({ autoWinner: winner, autoWinnerLocked: true, shiftInactiveFirst: inactiveFirst });
       }
@@ -325,9 +340,11 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
         const nextDuration = PERIOD_DURATIONS[nextPeriod] || 0;
         const updatedState = get(); // re-get after auto winner set
         const hubs = computeHubStatuses(
-          nextPeriod, nextDuration,
+          nextPeriod,
+          nextDuration,
           updatedState.shiftInactiveFirst,
-          updatedState.redHubOverride, updatedState.blueHubOverride
+          updatedState.redHubOverride,
+          updatedState.blueHubOverride,
         );
         const led = computeLedMode(nextPeriod, hubs.red, hubs.blue, updatedState.alliance);
         set({
@@ -341,20 +358,22 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       } else {
         // Match finished
         set({
-          period: 'finished',
+          period: "finished",
           timeRemaining: 0,
           totalMatchTime: state.totalMatchTime + 1,
-          redHubStatus: 'inactive',
-          blueHubStatus: 'inactive',
-          ledMode: 'purple',
+          redHubStatus: "inactive",
+          blueHubStatus: "inactive",
+          ledMode: "purple",
         });
       }
     } else {
       // Normal tick
       const hubs = computeHubStatuses(
-        state.period, newTime,
+        state.period,
+        newTime,
         state.shiftInactiveFirst,
-        state.redHubOverride, state.blueHubOverride
+        state.redHubOverride,
+        state.blueHubOverride,
       );
       const led = computeLedMode(state.period, hubs.red, hubs.blue, state.alliance);
       set({
@@ -379,7 +398,7 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       period: state.period,
     };
 
-    const isAutoScoring = state.period === 'auto' || state.period === 'auto_grace';
+    const isAutoScoring = state.period === "auto" || state.period === "auto_grace";
     set({
       globalBallCount: count,
       [`${state.alliance}Score`]: state[`${state.alliance}Score`] + 1,
@@ -391,9 +410,9 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
   setAutoWinner: (winner) => {
     if (get().autoWinnerLocked) return;
     let inactiveFirst: Alliance;
-    if (winner === 'red') inactiveFirst = 'red';
-    else if (winner === 'blue') inactiveFirst = 'blue';
-    else inactiveFirst = Math.random() > 0.5 ? 'red' : 'blue';
+    if (winner === "red") inactiveFirst = "red";
+    else if (winner === "blue") inactiveFirst = "blue";
+    else inactiveFirst = Math.random() > 0.5 ? "red" : "blue";
     set({ autoWinner: winner, shiftInactiveFirst: inactiveFirst });
   },
 
@@ -413,11 +432,13 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
   },
 
   setAlliance: (a) => set({ alliance: a }),
+  setMatchData: (data) => set({ matchData: data }),
   setConnectionStatus: (connectionStatus) => set({ connectionStatus }),
   setMotor: (updates) => set((s) => ({ motor: { ...s.motor, ...updates } })),
-  triggerEStop: () => set((s) => ({
-    motor: { ...s.motor, eStop: true, enabled: false, percent: 0 },
-  })),
+  triggerEStop: () =>
+    set((s) => ({
+      motor: { ...s.motor, eStop: true, enabled: false, percent: 0 },
+    })),
   setGlobalBallCount: (count) => set({ globalBallCount: count }),
   setPeriod: (p) => {
     const duration = PERIOD_DURATIONS[p] || 0;
