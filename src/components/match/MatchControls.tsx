@@ -1,14 +1,16 @@
-import { useMatchStore } from '@/store/matchStore';
+import { useMatchStore, PERIOD_LABELS, type MatchPeriod } from '@/store/matchStore';
 import { Button } from '@/components/ui/button';
-import { Play, Square, FastForward, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Play, Square, Pause, RotateCcw, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function MatchControls() {
-  const { phase, startMatch, setPhase, resetMatch, triggerEStop } = useMatchStore();
+  const { period, paused, startMatch, pauseMatch, resumeMatch, resetMatch, triggerEStop } = useMatchStore();
+
+  const isRunning = period !== 'disabled' && period !== 'finished' && !paused;
 
   return (
     <div className="flex flex-wrap items-center justify-center gap-3">
-      {phase === 'disabled' && (
+      {period === 'disabled' && (
         <Button
           onClick={startMatch}
           className="gap-2 bg-frc-green px-6 py-3 font-display text-sm font-bold uppercase tracking-wider text-primary-foreground hover:bg-frc-green/80"
@@ -18,38 +20,27 @@ export default function MatchControls() {
         </Button>
       )}
 
-      {phase === 'auto' && (
+      {isRunning && (
         <Button
-          onClick={() => setPhase('teleop')}
-          className="gap-2 bg-frc-green px-6 font-display text-sm font-bold uppercase tracking-wider text-primary-foreground hover:bg-frc-green/80"
-          size="lg"
-        >
-          <FastForward size={18} /> Skip to Teleop
-        </Button>
-      )}
-
-      {phase === 'teleop' && (
-        <Button
-          onClick={() => setPhase('endgame')}
+          onClick={pauseMatch}
           className="gap-2 bg-frc-orange px-6 font-display text-sm font-bold uppercase tracking-wider text-primary-foreground hover:bg-frc-orange/80"
           size="lg"
         >
-          <FastForward size={18} /> Endgame
+          <Pause size={18} /> Pause
         </Button>
       )}
 
-      {(phase === 'auto' || phase === 'teleop' || phase === 'endgame') && (
+      {paused && period !== 'disabled' && period !== 'finished' && (
         <Button
-          onClick={() => setPhase('finished')}
-          variant="secondary"
-          className="gap-2 font-display text-sm font-bold uppercase tracking-wider"
+          onClick={resumeMatch}
+          className="gap-2 bg-frc-green px-6 font-display text-sm font-bold uppercase tracking-wider text-primary-foreground hover:bg-frc-green/80"
           size="lg"
         >
-          <Square size={18} /> End Match
+          <Play size={18} /> Resume
         </Button>
       )}
 
-      {phase === 'finished' && (
+      {(period !== 'disabled') && (
         <Button
           onClick={resetMatch}
           variant="secondary"
@@ -60,7 +51,6 @@ export default function MatchControls() {
         </Button>
       )}
 
-      {/* E-Stop always visible */}
       <Button
         onClick={triggerEStop}
         className={cn(

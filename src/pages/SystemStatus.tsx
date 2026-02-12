@@ -1,9 +1,9 @@
 import { useMatchStore } from '@/store/matchStore';
 import { cn } from '@/lib/utils';
-import { Wifi, WifiOff, Zap } from 'lucide-react';
+import { Wifi, WifiOff, Loader2 } from 'lucide-react';
 
 export default function SystemStatus() {
-  const { sensors, connectionStatus, ledMode, motor, demoMode } = useMatchStore();
+  const { connectionStatus, ledMode, motor, redHubStatus, blueHubStatus, period } = useMatchStore();
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -11,7 +11,6 @@ export default function SystemStatus() {
         System Status
       </h1>
 
-      {/* Connection */}
       <div className="rounded-lg border border-border bg-card p-4">
         <h3 className="mb-3 font-display text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
           Connection
@@ -19,52 +18,43 @@ export default function SystemStatus() {
         <div className="flex items-center gap-3">
           {connectionStatus === 'connected' ? (
             <Wifi className="text-status-ok" size={20} />
-          ) : connectionStatus === 'simulated' ? (
-            <Zap className="text-status-warn" size={20} />
+          ) : connectionStatus === 'reconnecting' ? (
+            <Loader2 className="text-status-warn animate-spin" size={20} />
           ) : (
             <WifiOff className="text-status-error" size={20} />
           )}
           <span className="font-mono text-sm text-foreground">
-            {connectionStatus === 'simulated' ? 'DEMO MODE' : connectionStatus.toUpperCase()}
+            {connectionStatus.toUpperCase()}
           </span>
         </div>
       </div>
 
-      {/* Sensors */}
       <div className="rounded-lg border border-border bg-card p-4">
         <h3 className="mb-3 font-display text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
-          Sensors
+          Hub Status
         </h3>
-        <div className="grid grid-cols-2 gap-3">
-          {sensors.map((sensor) => (
-            <div
-              key={sensor.id}
-              className="flex items-center gap-3 rounded-md border border-border bg-secondary/50 px-4 py-3"
-            >
-              <div
-                className={cn(
-                  'h-3 w-3 rounded-full',
-                  sensor.health === 'ok' && 'bg-status-ok',
-                  sensor.health === 'warn' && 'bg-status-warn animate-pulse-glow',
-                  sensor.health === 'error' && 'bg-status-error',
-                  sensor.health === 'offline' && 'bg-status-offline'
-                )}
-              />
-              <div>
-                <p className="font-mono text-sm text-foreground">{sensor.name}</p>
-                <p className="font-mono text-xs text-muted-foreground uppercase">
-                  {sensor.health}
-                  {sensor.lastTrigger && (
-                    <> · Last: {new Date(sensor.lastTrigger).toLocaleTimeString()}</>
-                  )}
-                </p>
-              </div>
-            </div>
-          ))}
+        <div className="grid grid-cols-2 gap-4 font-mono text-sm">
+          <div className="flex items-center gap-2">
+            <div className={cn(
+              'h-3 w-3 rounded-full',
+              redHubStatus === 'active' && 'bg-alliance-red',
+              redHubStatus === 'warning' && 'bg-alliance-red animate-pulse',
+              redHubStatus === 'inactive' && 'bg-muted',
+            )} />
+            Red Hub: <span className="text-foreground">{redHubStatus.toUpperCase()}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className={cn(
+              'h-3 w-3 rounded-full',
+              blueHubStatus === 'active' && 'bg-alliance-blue',
+              blueHubStatus === 'warning' && 'bg-alliance-blue animate-pulse',
+              blueHubStatus === 'inactive' && 'bg-muted',
+            )} />
+            Blue Hub: <span className="text-foreground">{blueHubStatus.toUpperCase()}</span>
+          </div>
         </div>
       </div>
 
-      {/* LED Status */}
       <div className="rounded-lg border border-border bg-card p-4">
         <h3 className="mb-3 font-display text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
           LED Strip
@@ -74,7 +64,6 @@ export default function SystemStatus() {
         </p>
       </div>
 
-      {/* Motor Status */}
       <div className="rounded-lg border border-border bg-card p-4">
         <h3 className="mb-3 font-display text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
           Motor
@@ -86,8 +75,7 @@ export default function SystemStatus() {
               {motor.enabled ? 'RUNNING' : 'OFF'}
             </span>
           </div>
-          <div>RPM: <span className="text-foreground">{motor.rpm}</span></div>
-          <div>Current: <span className="text-foreground">{motor.currentDraw.toFixed(1)}A</span></div>
+          <div>Power: <span className="text-foreground">{Math.round(motor.percent * 100)}%</span></div>
           <div>
             E-Stop:{' '}
             <span className={motor.eStop ? 'text-destructive' : 'text-status-ok'}>

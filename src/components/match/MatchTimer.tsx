@@ -1,49 +1,43 @@
 import { cn } from '@/lib/utils';
-import { useMatchStore, type MatchPhase } from '@/store/matchStore';
+import { useMatchStore, PERIOD_LABELS, type MatchPeriod } from '@/store/matchStore';
 
-const phaseLabels: Record<MatchPhase, string> = {
-  disabled: 'DISABLED',
-  auto: 'AUTONOMOUS',
-  teleop: 'TELEOPERATED',
-  endgame: 'ENDGAME',
-  finished: 'MATCH OVER',
-};
-
-const phaseColors: Record<MatchPhase, string> = {
+const periodColors: Record<string, string> = {
   disabled: 'text-muted-foreground',
   auto: 'text-frc-yellow',
-  teleop: 'text-frc-green',
+  auto_grace: 'text-frc-yellow',
+  transition: 'text-primary',
+  shift1: 'text-frc-green',
+  shift2: 'text-frc-green',
+  shift3: 'text-frc-green',
+  shift4: 'text-frc-green',
   endgame: 'text-frc-orange',
+  teleop_grace: 'text-frc-orange',
   finished: 'text-muted-foreground',
 };
 
 export default function MatchTimer() {
-  const { phase, timeRemaining } = useMatchStore();
+  const { period, timeRemaining } = useMatchStore();
 
   const minutes = Math.floor(timeRemaining / 60);
   const seconds = timeRemaining % 60;
   const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 
-  const isUrgent = phase === 'endgame' && timeRemaining <= 10;
+  const isUrgent = period === 'endgame' && timeRemaining <= 10;
+  const color = periodColors[period] || 'text-muted-foreground';
 
   return (
     <div className="flex flex-col items-center gap-1">
-      <span
-        className={cn(
-          'font-display text-xs font-bold uppercase tracking-[0.25em]',
-          phaseColors[phase]
-        )}
-      >
-        {phaseLabels[phase]}
+      <span className={cn('font-display text-xs font-bold uppercase tracking-[0.25em]', color)}>
+        {PERIOD_LABELS[period]}
       </span>
       <span
         className={cn(
           'font-mono text-6xl font-bold tabular-nums tracking-wider',
-          phaseColors[phase],
+          color,
           isUrgent && 'animate-pulse-glow text-destructive'
         )}
       >
-        {phase === 'disabled' || phase === 'finished' ? '--:--' : timeStr}
+        {period === 'disabled' || period === 'finished' ? '--:--' : timeStr}
       </span>
     </div>
   );
