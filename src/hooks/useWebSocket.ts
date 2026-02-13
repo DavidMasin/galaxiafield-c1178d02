@@ -15,7 +15,7 @@ export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<number | null>(null);
 
-  const { setConnectionStatus, addScore, setGlobalBallCount, applyPiStatus } = useMatchStore();
+  const { setConnectionStatus, applyPiStatus, applyPiScore } = useMatchStore();
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
@@ -39,8 +39,7 @@ export function useWebSocket() {
           const msg = JSON.parse(event.data);
 
           if (msg.type === "score") {
-            setGlobalBallCount(msg.count);
-            addScore(msg.count, msg.ts * 1000);
+            applyPiScore(msg);
           }
 
           if (msg.type === "status") {
@@ -66,7 +65,7 @@ export function useWebSocket() {
       console.warn("[WebSocket] Connection failed:", err);
       setConnectionStatus("disconnected");
     }
-  }, [setConnectionStatus, addScore, setGlobalBallCount, applyPiStatus]);
+  }, [setConnectionStatus, applyPiScore, applyPiStatus]);
 
   const send = useCallback((msg: Record<string, unknown>) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {

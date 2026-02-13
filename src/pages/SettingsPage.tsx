@@ -2,7 +2,8 @@ import { useMatchStore } from '@/store/matchStore';
 import { cn } from '@/lib/utils';
 
 export default function SettingsPage() {
-  const { alliance, setAlliance } = useMatchStore();
+  const alliance = useMatchStore((s) => s.alliance);
+  const setAlliance = useMatchStore((s) => s.setAlliance);
 
   return (
     <div className="flex flex-col gap-6 p-6">

@@ -1,19 +1,21 @@
 import { useMatchStore } from '@/store/matchStore';
+import { usePiWs } from '@/ws/PiWsContext';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { AlertTriangle, Power } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function MotorControl() {
-  const { motor, setMotor, triggerEStop } = useMatchStore();
+  const motor = useMatchStore((s) => s.motor);
+  const { send } = usePiWs();
 
   const handleToggle = () => {
     if (motor.eStop) return;
-    setMotor({ enabled: !motor.enabled, percent: motor.enabled ? 0 : motor.percent });
+    send({ type: "motor", percent: motor.enabled ? 0 : motor.percent || 0.5 });
   };
 
   const handlePercentChange = ([value]: number[]) => {
-    setMotor({ percent: value / 100 });
+    send({ type: "motor", percent: value / 100 });
   };
 
   return (
@@ -23,7 +25,7 @@ export default function MotorControl() {
       </h1>
 
       <Button
-        onClick={triggerEStop}
+        onClick={() => send({ type: "motor", percent: 0 })}
         className={cn(
           'h-20 gap-3 border-2 border-destructive bg-destructive font-display text-xl font-bold uppercase tracking-wider text-destructive-foreground hover:bg-destructive/80',
           'shadow-[0_0_30px_hsl(var(--destructive)/0.5)]'
@@ -37,13 +39,6 @@ export default function MotorControl() {
           <p className="font-display text-sm font-bold text-destructive">
             E-STOP ENGAGED — Motor disabled
           </p>
-          <Button
-            onClick={() => setMotor({ eStop: false })}
-            variant="secondary"
-            className="mt-3 font-display text-xs uppercase tracking-wider"
-          >
-            Reset E-Stop
-          </Button>
         </div>
       )}
 
