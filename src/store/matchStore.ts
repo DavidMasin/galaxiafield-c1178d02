@@ -14,7 +14,6 @@ export type MatchPeriod =
   | "finished";
 
 export type Alliance = "red" | "blue";
-
 export type HubStatus = "active" | "inactive" | "warning";
 
 export type LedMode =
@@ -30,8 +29,14 @@ export type LedMode =
   | "idle";
 
 export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";
-
 export type AutoWinner = "red" | "blue" | "tie";
+
+export interface ScoringEvent {
+  id: string;
+  timestamp: number; // ms
+  exit: number;      // 1..4
+  count: number;     // global count
+}
 
 export interface MotorState {
   enabled: boolean;
@@ -62,7 +67,7 @@ type PiStatusMsg = {
   match: {
     running: boolean;
     paused: boolean;
-    period: string; // pi uses "prematch","postmatch","post_grace" etc.
+    period: string; // "prematch","auto","shift1","postmatch",...
     match_time_left: number | null;
     time_left_in_period: number | null;
     hub_active: boolean;
@@ -80,16 +85,14 @@ type PiScoreMsg = {
   type: "score";
   count: number;
   exit: number;
-  ts: number;
+  ts: number; // unix seconds
 };
 
 function mapPiPeriodToUi(piPeriod: string): MatchPeriod {
-  // Pi: prematch/postmatch/post_grace
   if (piPeriod === "prematch") return "disabled";
   if (piPeriod === "postmatch") return "finished";
   if (piPeriod === "post_grace") return "teleop_grace";
 
-  // Normal ones already match:
   if (
     piPeriod === "auto" ||
     piPeriod === "auto_grace" ||
@@ -103,11 +106,10 @@ function mapPiPeriodToUi(piPeriod: string): MatchPeriod {
   ) {
     return piPeriod as MatchPeriod;
   }
-
   return "disabled";
 }
 
-function mapPiLedToUi(piLedMode: string, ledAlliance: "red" | "blue"): LedMode {
+function mapPiLedToUi(piLedMode: string, ledAlliance: Alliance): LedMode {
   if (piLedMode === "green") return "green";
   if (piLedMode === "purple") return "purple";
   if (piLedMode === "off") return "off";
@@ -123,22 +125,18 @@ function computeHubStatusesFromPi(match: PiStatusMsg["match"]): { red: HubStatus
   const period = mapPiPeriodToUi(match.period);
   const tLeft = typeof match.time_left_in_period === "number" ? match.time_left_in_period : 9999;
 
+  // If not running or finished, show both inactive
+  if (period === "disabled" || period === "finished") {
+    return { red: "inactive", blue: "inactive" };
+  }
+
   // Default: both active in non-shifts
   let red: HubStatus = "active";
   let blue: HubStatus = "active";
 
-  if (period === "disabled" || period === "finished") {
-    red = "inactive";
-    blue = "inactive";
-    return { red, blue };
-  }
-
-  if (period === "shift1" || period === "shift2" || period === "shift3" || period === "shift4") {
+  if (period.startsWith("shift")) {
     const winner = match.auto_winner ?? "red";
 
-    // This matches your Pi logic: shift1 inactive = auto winner
-    // therefore shift1 active is opposite of winner.
-    // Then alternates each shift.
     const activeByIfWinnerRed: Record<string, Alliance> = {
       shift1: "blue",
       shift2: "red",
@@ -158,71 +156,56 @@ function computeHubStatusesFromPi(match: PiStatusMsg["match"]): { red: HubStatus
     red = activeAlliance === "red" ? "active" : "inactive";
     blue = activeAlliance === "blue" ? "active" : "inactive";
 
-    // warning 3s before deactivation: whichever is active *and will become inactive next*
+    // warning 3s before deactivation if current active will become inactive next shift
     if (tLeft <= 3.0) {
-      // who is active next shift?
-      const next =
-        period === "shift4"
-          ? "endgame"
-          : (`shift${parseInt(period.replace("shift", "")) + 1}` as MatchPeriod);
+      const n = parseInt(period.replace("shift", ""), 10);
+      const next = n >= 4 ? "endgame" : `shift${n + 1}`;
 
       if (next.startsWith("shift")) {
         const nextActive =
-          winner === "red"
-            ? activeByIfWinnerRed[next]
-            : activeByIfWinnerBlue[next];
+          winner === "red" ? activeByIfWinnerRed[next] : activeByIfWinnerBlue[next];
 
-        // if current active != nextActive then current active will deactivate
         if (activeAlliance !== nextActive) {
           if (red === "active") red = "warning";
           if (blue === "active") blue = "warning";
         }
       }
     }
-
-    return { red, blue };
   }
 
-  // auto/transition/endgame/teleop_grace: both active
-  red = "active";
-  blue = "active";
-
-  // transition warning for shift1 inactive hub could be shown, but not required for “active/inactive”
   return { red, blue };
 }
 
 export interface MatchStore {
-  // Pi-driven mode (default true)
+  // Pi-driven mode
   usePiClock: boolean;
 
+  // UI state derived from Pi
   period: MatchPeriod;
-  timeRemaining: number; // display (seconds)
+  timeRemaining: number;
   paused: boolean;
 
-  // Hub state (computed from Pi match)
   redHubStatus: HubStatus;
   blueHubStatus: HubStatus;
 
-  // Scores
+  // Counters / logs
   globalBallCount: number;
+  scoringEvents: ScoringEvent[];
 
-  // Pi match mirrors
+  // Mirrors
   piMatch: PiStatusMsg["match"] | null;
   estopOk: boolean;
 
   // System
   connectionStatus: ConnectionStatus;
   ledMode: LedMode;
-  alliance: Alliance;
 
   motor: MotorState;
 
-  // Actions: apply messages
+  // Actions
   applyPiStatus: (msg: PiStatusMsg) => void;
   applyPiScore: (msg: PiScoreMsg) => void;
 
-  // Misc setters
-  setAlliance: (a: Alliance) => void;
   setConnectionStatus: (s: ConnectionStatus) => void;
 }
 
@@ -237,13 +220,13 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
   blueHubStatus: "inactive",
 
   globalBallCount: 0,
+  scoringEvents: [],
 
   piMatch: null,
   estopOk: true,
 
   connectionStatus: "disconnected",
   ledMode: "off",
-  alliance: "red",
 
   motor: { enabled: false, percent: 0, eStop: false },
 
@@ -264,8 +247,6 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
 
       period: uiPeriod,
       paused: !!msg.match.paused,
-
-      // show whole-match time remaining (what you want on FMS)
       timeRemaining: Math.ceil(matchLeft),
 
       ledMode: led,
@@ -283,9 +264,19 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
   },
 
   applyPiScore: (msg) => {
-    set({ globalBallCount: msg.count });
+    const tsMs = Math.round(msg.ts * 1000);
+    const ev: ScoringEvent = {
+      id: `${tsMs}-${msg.count}-${msg.exit}`,
+      timestamp: tsMs,
+      exit: msg.exit,
+      count: msg.count,
+    };
+
+    set((st) => ({
+      globalBallCount: msg.count,
+      scoringEvents: [ev, ...st.scoringEvents].slice(0, 200),
+    }));
   },
 
-  setAlliance: (a) => set({ alliance: a }),
   setConnectionStatus: (s) => set({ connectionStatus: s }),
 }));
