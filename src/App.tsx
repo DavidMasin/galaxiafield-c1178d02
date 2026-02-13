@@ -11,6 +11,7 @@ import MotorControl from "./pages/MotorControl";
 import SettingsPage from "./pages/SettingsPage";
 import FullScreenMatch from "./pages/FullScreenMatch";
 import NotFound from "./pages/NotFound";
+import { PiWsProvider } from "@/ws/PiWsContext";
 
 const queryClient = new QueryClient();
 
@@ -19,19 +20,21 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route element={<DashboardLayout />}>
-            <Route path="/" element={<Index />} />
-            <Route path="/status" element={<SystemStatus />} />
-            <Route path="/leds" element={<LedControl />} />
-            <Route path="/motor" element={<MotorControl />} />
-            <Route path="/settings" element={<SettingsPage />} />
-          </Route>
-          <Route path="/fullscreen" element={<FullScreenMatch />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <PiWsProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<DashboardLayout />}>
+              <Route path="/" element={<Index />} />
+              <Route path="/status" element={<SystemStatus />} />
+              <Route path="/leds" element={<LedControl />} />
+              <Route path="/motor" element={<MotorControl />} />
+              <Route path="/settings" element={<SettingsPage />} />
+            </Route>
+            <Route path="/fullscreen" element={<FullScreenMatch />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </PiWsProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
