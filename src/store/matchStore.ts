@@ -29,36 +29,15 @@ export type LedMode =
   | "idle";
 
 export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";
-export type AutoWinner = "red" | "blue" | "tie";
 
 export interface ScoringEvent {
   id: string;
   timestamp: number; // ms
   exit: number;      // 1..4
   count: number;     // global count
-  alliance?: Alliance; // optional (Pi doesn't provide; UI may later)
-  sensorId?: number;   // legacy name
+  sensorId?: number; // legacy alias
+  alliance?: Alliance; // optional
 }
-
-export interface MotorState {
-  enabled: boolean;
-  percent: number;
-  eStop: boolean;
-}
-
-export const PERIOD_LABELS: Record<MatchPeriod, string> = {
-  disabled: "DISABLED",
-  auto: "AUTONOMOUS",
-  auto_grace: "AUTO GRACE",
-  transition: "TRANSITION SHIFT",
-  shift1: "SHIFT 1",
-  shift2: "SHIFT 2",
-  shift3: "SHIFT 3",
-  shift4: "SHIFT 4",
-  endgame: "END GAME",
-  teleop_grace: "TELEOP GRACE",
-  finished: "MATCH OVER",
-};
 
 type PiStatusMsg = {
   type: "status";
@@ -69,15 +48,15 @@ type PiStatusMsg = {
   match: {
     running: boolean;
     paused: boolean;
-    period: string;
+    period: string; // prematch/postmatch/auto/shift1...
     match_time_left: number | null;
     time_left_in_period: number | null;
     hub_active: boolean;
     warn_deactivate: boolean;
-    led_mode: string;
-    led_alliance: "red" | "blue";
-    auto_winner: "red" | "blue" | null;
-    hub_side: "red" | "blue";
+    led_mode: string; // off/solid/pulse/chase/green/purple
+    led_alliance: Alliance; // "red"|"blue" (hub_side)
+    auto_winner: Alliance | null;
+    hub_side: Alliance;
     force_mode: "force_active" | "force_inactive" | null;
     field_safe: "green" | "purple" | null;
   };
@@ -97,47 +76,95 @@ declare global {
 }
 
 function piSend(msg: Record<string, unknown>) {
-  // Safe no-op if provider not mounted yet
   window.__PI_SEND__?.(msg);
 }
 
-function mapPiPeriodToUi(piPeriod: string): MatchPeriod {
-  if (piPeriod === "prematch") return "disabled";
-  if (piPeriod === "postmatch") return "finished";
-  if (piPeriod === "post_grace") return "teleop_grace";
-
+function mapPiPeriod(pi: string): MatchPeriod {
+  if (pi === "prematch") return "disabled";
+  if (pi === "postmatch") return "finished";
+  if (pi === "post_grace") return "teleop_grace";
   if (
-    piPeriod === "auto" ||
-    piPeriod === "auto_grace" ||
-    piPeriod === "transition" ||
-    piPeriod === "shift1" ||
-    piPeriod === "shift2" ||
-    piPeriod === "shift3" ||
-    piPeriod === "shift4" ||
-    piPeriod === "endgame" ||
-    piPeriod === "teleop_grace"
-  ) {
-    return piPeriod as MatchPeriod;
-  }
+    pi === "auto" ||
+    pi === "auto_grace" ||
+    pi === "transition" ||
+    pi === "shift1" ||
+    pi === "shift2" ||
+    pi === "shift3" ||
+    pi === "shift4" ||
+    pi === "endgame" ||
+    pi === "teleop_grace"
+  ) return pi as MatchPeriod;
   return "disabled";
 }
 
-function mapPiLedToUi(piLedMode: string, ledAlliance: Alliance): LedMode {
-  if (piLedMode === "green") return "green";
-  if (piLedMode === "purple") return "purple";
-  if (piLedMode === "off") return "off";
-
-  if (piLedMode === "solid") return ledAlliance === "red" ? "solid_red" : "solid_blue";
-  if (piLedMode === "pulse") return ledAlliance === "red" ? "pulse_red" : "pulse_blue";
-  if (piLedMode === "chase") return ledAlliance === "red" ? "chase_red" : "chase_blue";
-
+function mapPiLed(piLed: string, hubSide: Alliance): LedMode {
+  if (piLed === "green") return "green";
+  if (piLed === "purple") return "purple";
+  if (piLed === "off") return "off";
+  if (piLed === "solid") return hubSide === "red" ? "solid_red" : "solid_blue";
+  if (piLed === "pulse") return hubSide === "red" ? "pulse_red" : "pulse_blue";
+  if (piLed === "chase") return hubSide === "red" ? "chase_red" : "chase_blue";
   return "idle";
 }
 
-export interface MatchStore {
-  // Pi-driven state
-  usePiClock: boolean;
+/**
+ * Compute which alliance is ACTIVE during a shift.
+ * Matches the Pi logic:
+ * - If auto_winner == red => shift1 blue active, shift2 red, shift3 blue, shift4 red
+ * - If auto_winner == blue => shift1 red active, shift2 blue, shift3 red, shift4 blue
+ */
+function activeAllianceForShift(autoWinner: Alliance, shift: "shift1" | "shift2" | "shift3" | "shift4"): Alliance {
+  if (autoWinner === "red") {
+    return (shift === "shift1" || shift === "shift3") ? "blue" : "red";
+  }
+  // autoWinner === "blue"
+  return (shift === "shift1" || shift === "shift3") ? "red" : "blue";
+}
 
+function computeHubStatuses(match: PiStatusMsg["match"]): { red: HubStatus; blue: HubStatus } {
+  const period = mapPiPeriod(match.period);
+
+  // prematch/finished -> both inactive
+  if (!match.running || period === "disabled" || period === "finished") {
+    return { red: "inactive", blue: "inactive" };
+  }
+
+  // during these: both active
+  if (period === "auto" || period === "auto_grace" || period === "transition" || period === "endgame" || period === "teleop_grace") {
+    return { red: "active", blue: "active" };
+  }
+
+  // shifts: only one active
+  if (period === "shift1" || period === "shift2" || period === "shift3" || period === "shift4") {
+    const winner = match.auto_winner ?? "red";
+    const active = activeAllianceForShift(winner, period);
+    let red: HubStatus = active === "red" ? "active" : "inactive";
+    let blue: HubStatus = active === "blue" ? "active" : "inactive";
+
+    // warning 3s before boundary IF currently active will become inactive next shift
+    const tLeft = typeof match.time_left_in_period === "number" ? match.time_left_in_period : 9999;
+    if (tLeft <= 3) {
+      const next =
+        period === "shift1" ? "shift2" :
+        period === "shift2" ? "shift3" :
+        period === "shift3" ? "shift4" : "endgame";
+
+      if (next.startsWith("shift")) {
+        const nextActive = activeAllianceForShift(winner, next as any);
+        if (nextActive !== active) {
+          if (red === "active") red = "warning";
+          if (blue === "active") blue = "warning";
+        }
+      }
+    }
+    return { red, blue };
+  }
+
+  // default safe
+  return { red: "inactive", blue: "inactive" };
+}
+
+export interface MatchStore {
   period: MatchPeriod;
   timeRemaining: number;
   paused: boolean;
@@ -148,36 +175,37 @@ export interface MatchStore {
   globalBallCount: number;
   scoringEvents: ScoringEvent[];
 
-  piMatch: PiStatusMsg["match"] | null;
   estopOk: boolean;
-
   connectionStatus: ConnectionStatus;
+
+  // Display what the Pi says the LEDs should be doing
   ledMode: LedMode;
+  hubSide: Alliance;
 
-  motor: MotorState;
+  // keep raw for debugging if needed
+  piMatch: PiStatusMsg["match"] | null;
 
-  // UI preferences / controls
-  alliance: Alliance;
-
-  // WS apply
+  // Apply from WS
   applyPiStatus: (msg: PiStatusMsg) => void;
   applyPiScore: (msg: PiScoreMsg) => void;
 
-  // Compatibility actions (existing pages call these)
-  setAlliance: (a: Alliance) => void;
-
+  // Controls used by UI
   startMatch: () => void;
   pauseMatch: () => void;
   resumeMatch: () => void;
-  resetMatch: () => void;
+  stopMatch: () => void;
+
+  setAutoWinner: (w: "red" | "blue" | "tie") => void;
+  setHubSide: (a: Alliance) => void;
+  force: (mode: null | "force_active" | "force_inactive") => void;
+  fieldSafe: (mode: null | "green" | "purple") => void;
+
   resetCount: () => void;
 
   setConnectionStatus: (s: ConnectionStatus) => void;
 }
 
 export const useMatchStore = create<MatchStore>((set, get) => ({
-  usePiClock: true,
-
   period: "disabled",
   timeRemaining: 0,
   paused: false,
@@ -188,41 +216,35 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
   globalBallCount: 0,
   scoringEvents: [],
 
-  piMatch: null,
   estopOk: true,
-
   connectionStatus: "disconnected",
+
   ledMode: "off",
+  hubSide: "red",
 
-  motor: { enabled: false, percent: 0, eStop: false },
-
-  alliance: "red",
+  piMatch: null,
 
   applyPiStatus: (msg) => {
-    const uiPeriod = mapPiPeriodToUi(msg.match.period);
+    const m = msg.match;
+    const period = mapPiPeriod(m.period);
+    const matchLeft = typeof m.match_time_left === "number" ? Math.max(0, m.match_time_left) : 0;
 
-    const matchLeft =
-      typeof msg.match.match_time_left === "number"
-        ? Math.max(0, msg.match.match_time_left)
-        : 0;
+    const hubs = computeHubStatuses(m);
 
     set({
-      piMatch: msg.match,
+      piMatch: m,
       estopOk: msg.estop_ok,
-
-      period: uiPeriod,
-      paused: !!msg.match.paused,
+      period,
+      paused: !!m.paused,
       timeRemaining: Math.ceil(matchLeft),
 
-      ledMode: mapPiLedToUi(msg.match.led_mode, msg.match.led_alliance),
+      redHubStatus: hubs.red,
+      blueHubStatus: hubs.blue,
+
+      hubSide: m.hub_side,
+      ledMode: mapPiLed(m.led_mode, m.hub_side),
 
       globalBallCount: msg.ball_count ?? get().globalBallCount,
-
-      motor: {
-        ...get().motor,
-        enabled: !!msg.motor_enabled,
-        eStop: !msg.estop_ok,
-      },
     });
   },
 
@@ -232,7 +254,7 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       id: `${tsMs}-${msg.count}-${msg.exit}`,
       timestamp: tsMs,
       exit: msg.exit,
-      sensorId: msg.exit, // legacy alias
+      sensorId: msg.exit,
       count: msg.count,
     };
 
@@ -242,25 +264,16 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
     }));
   },
 
-  setAlliance: (a) => {
-    const alliance: Alliance = a === "blue" ? "blue" : "red";
-    set({ alliance });
-
-    // This is the IMPORTANT part: selecting alliance on UI should control which hub side this Pi represents
-    // (this lets “force active” etc affect the intended side)
-    piSend({ type: "set_hub_side", alliance });
-  },
-
-  // Compatibility button actions → Pi commands
   startMatch: () => piSend({ type: "match_start" }),
   pauseMatch: () => piSend({ type: "match_pause" }),
   resumeMatch: () => piSend({ type: "match_resume" }),
-  resetMatch: () => {
-    piSend({ type: "match_stop" });
-    piSend({ type: "reset_count" });
-    piSend({ type: "force", mode: null });
-    piSend({ type: "field_safe", mode: null });
-  },
+  stopMatch: () => piSend({ type: "match_stop" }),
+
+  setAutoWinner: (winner) => piSend({ type: "set_auto_winner", winner }),
+  setHubSide: (alliance) => piSend({ type: "set_hub_side", alliance }),
+  force: (mode) => piSend({ type: "force", mode }),
+  fieldSafe: (mode) => piSend({ type: "field_safe", mode }),
+
   resetCount: () => piSend({ type: "reset_count" }),
 
   setConnectionStatus: (s) => set({ connectionStatus: s }),
