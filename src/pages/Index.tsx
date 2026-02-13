@@ -7,7 +7,8 @@ import { useMatchTimer } from '@/hooks/useMatchTimer';
 
 const Index = () => {
   useMatchTimer();
-  const { redScore, blueScore, period, alliance, globalBallCount } = useMatchStore();
+  const period = useMatchStore((s) => s.period);
+  const globalBallCount = useMatchStore((s) => s.globalBallCount);
 
   const isActive = period !== 'disabled' && period !== 'finished';
 
@@ -23,9 +24,9 @@ const Index = () => {
       </div>
 
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-6">
-        <ScorePanel alliance="red" score={redScore} isActive={isActive} />
+        <ScorePanel alliance="red" score={globalBallCount} isActive={isActive} />
         <MatchTimer />
-        <ScorePanel alliance="blue" score={blueScore} isActive={isActive} />
+        <ScorePanel alliance="blue" score={globalBallCount} isActive={isActive} />
       </div>
 
       <MatchControls />
