@@ -1,19 +1,13 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useMatchStore } from "@/store/matchStore";
 
-const PI_IP = "10.59.87.50"; // <-- Change if needed
+const PI_IP = "10.59.87.50";
 const WS_PORT = "5805";
 const RECONNECT_DELAY = 2000;
 
 function getWebSocketUrl() {
   const isHttps = window.location.protocol === "https:";
-
-  // If site is HTTPS, we MUST use WSS
-  if (isHttps) {
-    return `wss://${PI_IP}/ws`;
-  }
-
-  // If local HTTP, plain ws is fine
+  if (isHttps) return `wss://${PI_IP}/ws`;
   return `ws://${PI_IP}:${WS_PORT}`;
 }
 
@@ -21,18 +15,12 @@ export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<number | null>(null);
 
-  const {
-    setConnectionStatus,
-    addScore,
-    setGlobalBallCount,
-    setMatchData, // we’ll use this for status messages
-  } = useMatchStore();
+  const { setConnectionStatus, addScore, setGlobalBallCount, applyPiStatus } = useMatchStore();
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     const WS_URL = getWebSocketUrl();
-
     setConnectionStatus("reconnecting");
 
     try {
@@ -50,15 +38,13 @@ export function useWebSocket() {
         try {
           const msg = JSON.parse(event.data);
 
-          // ===== SCORE EVENT =====
           if (msg.type === "score") {
             setGlobalBallCount(msg.count);
             addScore(msg.count, msg.ts * 1000);
           }
 
-          // ===== STATUS UPDATE =====
           if (msg.type === "status") {
-            setMatchData(msg); // Store entire status object
+            applyPiStatus(msg);
           }
         } catch (err) {
           console.warn("[WebSocket] Bad message:", err);
@@ -80,7 +66,7 @@ export function useWebSocket() {
       console.warn("[WebSocket] Connection failed:", err);
       setConnectionStatus("disconnected");
     }
-  }, [setConnectionStatus, addScore, setGlobalBallCount, setMatchData]);
+  }, [setConnectionStatus, addScore, setGlobalBallCount, applyPiStatus]);
 
   const send = useCallback((msg: Record<string, unknown>) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
