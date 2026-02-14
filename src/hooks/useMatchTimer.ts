@@ -1,16 +1,10 @@
-import { useEffect, useRef } from "react";
-import { useMatchStore } from "@/store/matchStore";
-
+/**
+ * Frontend MUST NOT simulate match timing.
+ *
+ * The Raspberry Pi is authoritative and publishes `match.match_time_left`.
+ * We keep this hook as a no-op so existing pages can import/call it without
+ * accidentally starting any local intervals.
+ */
 export function useMatchTimer() {
-  const tickRef = useRef<number | null>(null);
-  const usePiClock = useMatchStore((s) => s.usePiClock);
-
-  useEffect(() => {
-    // Pi drives time; local ticking disabled.
-    if (usePiClock) return;
-
-    return () => {
-      if (tickRef.current) clearInterval(tickRef.current);
-    };
-  }, [usePiClock]);
+  // Intentionally empty.
 }
