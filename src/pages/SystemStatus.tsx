@@ -1,4 +1,4 @@
-import { useMatchStore } from '@/store/matchStore';
+import { useMatchStore, type MotorState } from '@/store/matchStore';
 import { cn } from '@/lib/utils';
 import { Wifi, WifiOff, Loader2 } from 'lucide-react';
 

@@ -1,4 +1,4 @@
-import { useMatchStore } from '@/store/matchStore';
+import { useMatchStore, type MotorState } from '@/store/matchStore';
 import { usePiWs } from '@/ws/PiWsContext';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';

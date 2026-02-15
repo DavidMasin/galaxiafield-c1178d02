@@ -215,6 +215,12 @@ function computeHubStatuses(match: PiStatusMsg["match"]): { red: HubStatus; blue
   return { red: "inactive", blue: "inactive" };
 }
 
+export interface MotorState {
+  enabled: boolean;
+  percent: number;
+  eStop: boolean;
+}
+
 export interface MatchStore {
   period: MatchPeriod;
   timeRemaining: number;
@@ -232,7 +238,13 @@ export interface MatchStore {
   ledMode: LedMode;
   hubSide: Alliance;
 
+  motor: MotorState;
+
   piMatch: PiStatusMsg["match"] | null;
+
+  // Demo mode
+  demoMode: boolean;
+  setDemoMode: (on: boolean) => void;
 
   applyPiStatus: (msg: PiStatusMsg) => void;
   applyPiScore: (msg: PiScoreMsg) => void;
@@ -270,7 +282,12 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
   ledMode: "off",
   hubSide: "red",
 
+  motor: { enabled: false, percent: 0, eStop: false },
+
   piMatch: null,
+
+  demoMode: false,
+  setDemoMode: (on) => set({ demoMode: on }),
 
   applyPiStatus: (msg) => {
     const m = msg.match;
@@ -291,6 +308,12 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
 
       hubSide: m.hub_side,
       ledMode: mapPiLed(m.led_mode, m.hub_side),
+
+      motor: {
+        enabled: !!msg.motor_enabled,
+        percent: 0,
+        eStop: !msg.estop_ok,
+      },
 
       globalBallCount: msg.ball_count ?? get().globalBallCount,
     });
