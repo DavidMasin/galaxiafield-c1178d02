@@ -13,12 +13,15 @@ export function useMatchEffects() {
   const fired100 = useRef(false);
   const fired360 = useRef(false);
   const bpsFlashUntil = useRef(0);
+  const maxBps = useRef(0);
 
   // Reset milestone flags when count resets
   useEffect(() => {
     if (globalBallCount < prevCount.current) {
       fired100.current = false;
       fired360.current = false;
+      maxBps.current = 0;
+      timestamps.current = [];
     }
   }, [globalBallCount]);
 
@@ -61,6 +64,9 @@ export function useMatchEffects() {
 
     // 10+ BPS flash
     const bps = computeBps(timestamps.current);
+    if (bps > maxBps.current) {
+      maxBps.current = bps;
+    }
     if (bps >= 10) {
       bpsFlashUntil.current = now + 2000;
     }
@@ -74,7 +80,11 @@ export function useMatchEffects() {
     return Date.now() < bpsFlashUntil.current;
   }, []);
 
-  return { getBps, isBpsFlash };
+  const getMaxBps = useCallback(() => {
+    return maxBps.current;
+  }, []);
+
+  return { getBps, isBpsFlash, getMaxBps };
 }
 
 function computeBps(timestamps: number[]): number {
