@@ -70,27 +70,30 @@ export default function FullScreenMatch() {
     store.resetCount();
 
     // Simulate match start by setting period to auto
+    // 2026 timing: Auto 20s + Grace 3s + Transition 10s + 4×25s Shifts + Endgame 30s + Grace 3s = 166s
+    const TOTAL = 166;
+
     useMatchStore.setState({
       period: "auto",
       paused: false,
-      timeRemaining: 150,
+      timeRemaining: TOTAL,
       redHubStatus: "active",
       blueHubStatus: "active",
       globalBallCount: 0,
       scoringEvents: [],
     });
 
-    // Auto period transitions
+    // Auto period transitions (cumulative delays in ms)
     const transitions: { delay: number; state: Partial<ReturnType<typeof useMatchStore.getState>> }[] = [
-      { delay: 15000, state: { period: "auto_grace" as const, timeRemaining: 135 } },
-      { delay: 18000, state: { period: "transition" as const, timeRemaining: 132 } },
-      { delay: 21000, state: { period: "shift1" as const, timeRemaining: 129 } },
-      { delay: 41000, state: { period: "shift2" as const, timeRemaining: 109 } },
-      { delay: 61000, state: { period: "shift3" as const, timeRemaining: 89 } },
-      { delay: 81000, state: { period: "shift4" as const, timeRemaining: 69 } },
-      { delay: 101000, state: { period: "endgame" as const, timeRemaining: 49 } },
-      { delay: 146000, state: { period: "teleop_grace" as const, timeRemaining: 4 } },
-      { delay: 150000, state: { period: "finished" as const, timeRemaining: 0, paused: false } },
+      { delay: 20000,  state: { period: "auto_grace" as const, timeRemaining: TOTAL - 20 } },   // 3s grace
+      { delay: 23000,  state: { period: "transition" as const, timeRemaining: TOTAL - 23 } },   // 10s transition
+      { delay: 33000,  state: { period: "shift1" as const, timeRemaining: TOTAL - 33 } },       // 25s shift1
+      { delay: 58000,  state: { period: "shift2" as const, timeRemaining: TOTAL - 58 } },       // 25s shift2
+      { delay: 83000,  state: { period: "shift3" as const, timeRemaining: TOTAL - 83 } },       // 25s shift3
+      { delay: 108000, state: { period: "shift4" as const, timeRemaining: TOTAL - 108 } },      // 25s shift4
+      { delay: 133000, state: { period: "endgame" as const, timeRemaining: TOTAL - 133 } },     // 30s endgame
+      { delay: 163000, state: { period: "teleop_grace" as const, timeRemaining: TOTAL - 163 } },// 3s grace
+      { delay: 166000, state: { period: "finished" as const, timeRemaining: 0, paused: false } },
     ];
 
     const timers: number[] = [];
@@ -99,7 +102,7 @@ export default function FullScreenMatch() {
     });
 
     // Countdown timer
-    let t = 150;
+    let t = TOTAL;
     const countdown = window.setInterval(() => {
       t--;
       if (t <= 0) {
