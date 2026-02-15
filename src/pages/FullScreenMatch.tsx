@@ -1,10 +1,11 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useMatchStore, PERIOD_LABELS } from "@/store/matchStore";
 import { usePiWs } from "@/ws/PiWsContext";
 import { useMatchEffects } from "@/hooks/useMatchEffects";
 import { useDemoMode } from "@/hooks/useDemoMode";
+import { useMatchAudio } from "@/hooks/useMatchAudio";
 import { cn } from "@/lib/utils";
-import { Play, Pause, RotateCcw, Square, Zap, FlaskConical } from "lucide-react";
+import { Play, Pause, RotateCcw, Square, Zap, FlaskConical, Volume2, VolumeOff, PartyPopper, Trophy } from "lucide-react";
 
 export default function FullScreenMatch() {
   const { send } = usePiWs();
@@ -19,8 +20,9 @@ export default function FullScreenMatch() {
   const demoMode = useMatchStore((s) => s.demoMode);
   const setDemoMode = useMatchStore((s) => s.setDemoMode);
 
-  const { getBps, isBpsFlash } = useMatchEffects();
+  const { getBps, isBpsFlash, getMaxBps } = useMatchEffects();
   useDemoMode();
+  const { setMatchSound, setCelebrationSound, getMatchSoundEnabled, getCelebrationSoundEnabled } = useMatchAudio();
 
   const isRunning = period !== "disabled" && period !== "finished";
   const canStart = period === "disabled";
@@ -33,15 +35,84 @@ export default function FullScreenMatch() {
 
   // BPS display — update every 200ms
   const [bps, setBps] = useState(0);
+  const [maxBps, setMaxBps] = useState(0);
   const [insaneFlash, setInsaneFlash] = useState(false);
+  const [matchSoundOn, setMatchSoundOn] = useState(true);
+  const [celebrationSoundOn, setCelebrationSoundOn] = useState(true);
 
   useEffect(() => {
     const id = setInterval(() => {
       setBps(getBps());
+      setMaxBps(getMaxBps());
       setInsaneFlash(isBpsFlash());
     }, 200);
     return () => clearInterval(id);
-  }, [getBps, isBpsFlash]);
+  }, [getBps, isBpsFlash, getMaxBps]);
+
+  const toggleMatchSound = useCallback(() => {
+    const next = !getMatchSoundEnabled();
+    setMatchSoundOn(next);
+    setMatchSound(next);
+  }, [setMatchSound, getMatchSoundEnabled]);
+
+  const toggleCelebrationSound = useCallback(() => {
+    const next = !getCelebrationSoundEnabled();
+    setCelebrationSoundOn(next);
+    setCelebrationSound(next);
+  }, [setCelebrationSound, getCelebrationSoundEnabled]);
+
+  // Demo match start: simulate period transitions
+  const handleDemoMatchStart = useCallback(() => {
+    if (!demoMode) setDemoMode(true);
+
+    const store = useMatchStore.getState();
+    // Reset count
+    store.resetCount();
+
+    // Simulate match start by setting period to auto
+    useMatchStore.setState({
+      period: "auto",
+      paused: false,
+      timeRemaining: 150,
+      redHubStatus: "active",
+      blueHubStatus: "active",
+      globalBallCount: 0,
+      scoringEvents: [],
+    });
+
+    // Auto period transitions
+    const transitions: { delay: number; state: Partial<ReturnType<typeof useMatchStore.getState>> }[] = [
+      { delay: 15000, state: { period: "auto_grace" as const, timeRemaining: 135 } },
+      { delay: 18000, state: { period: "transition" as const, timeRemaining: 132 } },
+      { delay: 21000, state: { period: "shift1" as const, timeRemaining: 129 } },
+      { delay: 41000, state: { period: "shift2" as const, timeRemaining: 109 } },
+      { delay: 61000, state: { period: "shift3" as const, timeRemaining: 89 } },
+      { delay: 81000, state: { period: "shift4" as const, timeRemaining: 69 } },
+      { delay: 101000, state: { period: "endgame" as const, timeRemaining: 49 } },
+      { delay: 146000, state: { period: "teleop_grace" as const, timeRemaining: 4 } },
+      { delay: 150000, state: { period: "finished" as const, timeRemaining: 0, paused: false } },
+    ];
+
+    const timers: number[] = [];
+    transitions.forEach(({ delay, state }) => {
+      timers.push(window.setTimeout(() => useMatchStore.setState(state), delay));
+    });
+
+    // Countdown timer
+    let t = 150;
+    const countdown = window.setInterval(() => {
+      t--;
+      if (t <= 0) {
+        clearInterval(countdown);
+        return;
+      }
+      useMatchStore.setState({ timeRemaining: t });
+    }, 1000);
+    timers.push(countdown);
+
+    // Store cleanup refs (simple approach — cleared on next start)
+    (window as any).__demoTimers = timers;
+  }, [demoMode, setDemoMode]);
 
   const periodColor = useMemo(() => {
     if (period === "auto" || period === "auto_grace") return "text-frc-yellow";
@@ -78,7 +149,35 @@ export default function FullScreenMatch() {
         <div className="font-display text-lg font-bold uppercase tracking-[0.3em] text-foreground">
           FRC HUB
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          {/* Sound toggles */}
+          <button
+            onClick={toggleMatchSound}
+            className={cn(
+              "flex items-center gap-1 rounded px-2 py-1 font-display text-xs font-bold transition-colors",
+              matchSoundOn
+                ? "bg-frc-green/20 text-frc-green"
+                : "bg-muted text-muted-foreground"
+            )}
+            title="Match sounds"
+          >
+            {matchSoundOn ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeOff className="h-3.5 w-3.5" />}
+            Match
+          </button>
+          <button
+            onClick={toggleCelebrationSound}
+            className={cn(
+              "flex items-center gap-1 rounded px-2 py-1 font-display text-xs font-bold transition-colors",
+              celebrationSoundOn
+                ? "bg-frc-yellow/20 text-frc-yellow"
+                : "bg-muted text-muted-foreground"
+            )}
+            title="Celebration sounds"
+          >
+            {celebrationSoundOn ? <PartyPopper className="h-3.5 w-3.5" /> : <VolumeOff className="h-3.5 w-3.5" />}
+            Celebration
+          </button>
+
           {demoMode && (
             <span className="rounded bg-frc-orange/20 px-2 py-0.5 font-display text-xs font-bold text-frc-orange">
               DEMO
@@ -118,18 +217,29 @@ export default function FullScreenMatch() {
           >
             {globalBallCount}
           </div>
-          <div
-            className={cn(
-              "mt-2 flex items-baseline gap-2 font-mono transition-all duration-200",
-              bps >= 10
-                ? "text-2xl font-bold text-frc-orange"
-                : bps >= 5
-                ? "text-xl text-frc-yellow"
-                : "text-sm text-muted-foreground"
+          <div className="mt-2 flex items-center gap-6">
+            {/* Live BPS */}
+            <div
+              className={cn(
+                "flex items-baseline gap-2 font-mono transition-all duration-200",
+                bps >= 10
+                  ? "text-2xl font-bold text-frc-orange"
+                  : bps >= 5
+                  ? "text-xl text-frc-yellow"
+                  : "text-sm text-muted-foreground"
+              )}
+            >
+              <span className="tabular-nums">{bps}</span>
+              <span className="text-xs uppercase tracking-wider">balls/sec</span>
+            </div>
+            {/* Max BPS */}
+            {maxBps > 0 && (
+              <div className="flex items-baseline gap-1.5 font-mono text-sm text-muted-foreground">
+                <Trophy className="inline h-3.5 w-3.5 text-frc-yellow" />
+                <span className="tabular-nums font-bold text-frc-yellow">{maxBps}</span>
+                <span className="text-xs uppercase tracking-wider">max</span>
+              </div>
             )}
-          >
-            <span className="tabular-nums">{bps}</span>
-            <span className="text-xs uppercase tracking-wider">balls/sec</span>
           </div>
         </div>
       </div>
@@ -177,6 +287,7 @@ export default function FullScreenMatch() {
           Force Off
         </CtrlBtn>
 
+        {/* Demo controls */}
         <CtrlBtn
           onClick={() => setDemoMode(!demoMode)}
           className={cn(
@@ -189,6 +300,13 @@ export default function FullScreenMatch() {
           <FlaskConical className="inline-block h-4 w-4 mr-2" />
           Demo {demoMode ? "ON" : "Off"}
         </CtrlBtn>
+
+        {demoMode && canStart && (
+          <CtrlBtn onClick={handleDemoMatchStart} className="bg-frc-green/80 text-background">
+            <Play className="inline-block h-4 w-4 mr-2" />
+            Demo Match
+          </CtrlBtn>
+        )}
 
         <CtrlBtn onClick={() => send({ type: "motor", percent: 0 })} className="bg-destructive text-destructive-foreground">
           <Zap className="inline-block h-4 w-4 mr-2" />
